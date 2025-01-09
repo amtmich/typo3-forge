@@ -1,7 +1,6 @@
 import streamlit as st
 from elasticsearch_module import Elasticsearch
 from result_renderer import ElasticsearchResultRenderer
-from Classes.Embeddings.EmbeddingGenerator import EmbeddingGenerator
 from dotenv import load_dotenv, dotenv_values
 import os
 load_dotenv()
