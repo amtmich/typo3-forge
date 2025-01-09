@@ -9,7 +9,7 @@ load_dotenv()
 class StreamlitApp:
     def __init__(self):
         self.es_client =  Elasticsearch()
-        self.tags_field_name = 'FieldsConcatenateUpdater__subject-description__PromptUpdater_test_gemini4'
+        self.tags_field_name = os.environ.get('search_field')
 
     def run(self):
         st.title("TYPO3 forge")
