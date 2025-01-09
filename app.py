@@ -10,24 +10,32 @@ class StreamlitApp:
         self.es_client =  Elasticsearch()
         self.tags_field_name = os.environ.get('search_field')
 
+    def search_provided(self):
+        st.session_state["search_clicked"] = True
+
     def run(self):
         st.title("TYPO3 forge")
-
-        st.session_state["record_id"] = st.text_input("Enter issue ID:", value="")
-
+        
         if "record" not in st.session_state:
             st.session_state["record"] = None
         if "record_id" not in st.session_state:
             st.session_state["record_id"] = None
+        if "search_clicked" not in st.session_state:
+            st.session_state["search_clicked"] = False
+
+        st.session_state["record_id"] = st.text_input(
+            "Enter issue ID:",
+            value=st.session_state["record_id"],
+            disabled=st.session_state.search_clicked,
+            on_change=self.search_provided
+            )
 
         if st.session_state["record_id"]:
             st.session_state["record"] = self.es_client.get_record_by_id(st.session_state["record_id"])
         else:
-            if st.button("Search"):
+            if st.button("Search", on_click=self.search_provided, disabled=st.session_state.search_clicked):
                 st.session_state["record"] = self.es_client.get_record_by_id(st.session_state["record_id"])
-
-        #st.text(st.session_state)
-
+            
         if st.session_state["record"]:
             self.render_input_with_checkbox(st.session_state["record"]['_source'].get(self.tags_field_name, ''))
             #st.text(self.filter_checked_items())
