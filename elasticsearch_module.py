@@ -9,13 +9,12 @@ class Elasticsearch:
                  port=os.environ.get('elasticsearch_port', '9200'),
                  username=os.environ.get('elasticsearch_username', ''),
                  password=os.environ.get('elasticsearch_password', '')):
-        print(123)
-        print(password)
         self.es = ElasticClient(
             f"http://{host}:{port}",
             basic_auth=(username, password)
         )
         self.index_name = index_name
+        self.size = os.environ.get('result_count')
 
         # Create index if it doesn't exist
         if not self.es.indices.exists(index=self.index_name):
@@ -26,6 +25,18 @@ class Elasticsearch:
             return self.es.get(index=self.index_name, id=record_id)
         except NotFoundError:
             return None
+        
+    def search_by_field(self, field, query, size=os.environ.get('result_count')):
+        search_body = {
+            'query': {
+                'match': {
+                    field: query,
+                }
+            },
+            'size': size
+        }
+
+        return self.es.search(index=self.index_name, body=search_body, explain=True)
 
     def full_text_search(self, field_values, size=5, exclude_ids=None):
         """
@@ -52,4 +63,74 @@ class Elasticsearch:
             }
         }
         return self.es.search(index=self.index_name, body=body, size=size)
+    
+    def more_like_this(self, field_name, record_id):
+        mlt_query = {
+            "query": {
+                "more_like_this": {
+                    "fields": [field_name],
+                    "like": [{"_index": self.index_name, "_id": record_id}],
+                    "min_term_freq": 1,
+                    "max_query_terms": 10
+                }
+            },
+            "size": self.size 
+        }
 
+        return self.es.search(index=self.index_name, body=mlt_query)
+    
+    def search_by_terms(self, field_name, terms, exclude_ids=None):
+        query = {
+            "query": {
+                "bool": {
+                    "should": [
+                        {
+                            "match": {
+                                field_name: {
+                                    "query": term,
+                                    "fuzziness": "AUTO"
+                                }
+                            }
+                        } for term in terms
+                    ],
+                    "minimum_should_match": 1,
+                    "must_not": [
+                        {"ids": {"values": exclude_ids}}  # Exclude documents by ID
+                    ] if exclude_ids else []
+                }
+            },
+            "size": self.size 
+        }
+        return self.es.search(index=self.index_name, body=query)
+    
+    def search_by_embedding(self, field: str, query_vector: list, size: int = 5):
+        search_query = {
+            "size": size,
+            "query": {
+                "script_score": {
+                    "query": {
+                        "match_all": {}
+                    },
+                    "script": {
+                        "source": f"""
+                            if (doc['{field}'].size() != 0) {{
+                                return cosineSimilarity(params.query_vector, '{field}') + 1.0;
+                            }} else {{
+                                return 0;  // or use a default score for documents without embeddings
+                            }}
+                        """,
+                        "params": {
+                            "query_vector": query_vector
+                        }
+                    }
+                }
+            }
+        }
+        # Execute the search query
+        try:
+            response = self.es.search(index=self.index_name, body=search_query)
+        except Exception as e:
+            print(e)
+
+        # Extract and return the results
+        return response
