@@ -68,6 +68,41 @@ class StreamlitApp:
 
     def filter_checked_items(self):
         return [item['label'] for item in st.session_state["item_states"].values() if item['checked']]
+    
+    def get_related_ids(self, record):
+        # Extract the comma-separated strings from the record
+        relations = record.get('relations', None)
+        relations_dupe = record.get('relations_dupe', None)
+        relations_sequence = record.get('relations_sequence', None)
+
+        # Combine all values into a single string, filtering out None
+        all_ids = filter(None, [relations, relations_dupe, relations_sequence])
+
+        # Split the strings into individual IDs and flatten the resulting list
+        ids = []
+        for id_str in all_ids:
+            ids.extend(id_str.split(","))
+
+        # Return a list of unique values
+        return list(set(ids))
+    
+    def get_common_ids(self, record, search_results):
+        """
+        Get common IDs between unique IDs from the record and IDs from Elasticsearch search results.
+
+        Args:
+            record (dict): A dictionary containing the keys 'relations', 'relations_dupe', and 'relations_sequence'.
+            search_results (dict): The results returned by the Elasticsearch search function.
+
+        Returns:
+            list: A list of IDs common to both sources.
+        """
+        unique_ids = self.get_related_ids(record)
+        search_ids = self.es_client.get_ids_from_search_results(search_results)
+
+        common_ids = list(set(unique_ids).intersection(search_ids))
+
+        return common_ids
 
     def render_results(self):
             main_result = ElasticsearchResultRenderer.render_main_result(st.session_state["record"])
@@ -99,15 +134,22 @@ class StreamlitApp:
             ##Search by given fields
             if st.session_state["item_states"]:
                 tags = self.filter_checked_items()
-                #st.header(self.tags_field_name)
-                st.text(tags)
             
                 similar_results = self.es_client.search_by_terms(
                     self.tags_field_name,
                     tags,
                     [st.session_state["record_id"]]
                 )
-                similar_output = ElasticsearchResultRenderer.render_similar_results(similar_results, self.tags_field_name)
+
+                st.text(f"Tags of searched issue: {tags}")
+                related_ids = self.get_related_ids(st.session_state['record']['_source'])
+                common_ids = []
+                if related_ids:
+                    st.text(f"Related issues ids {related_ids}")
+                    common_ids = self.get_common_ids(st.session_state['record']['_source'], similar_results)
+                    st.progress(len(common_ids)/len(related_ids), text=f"{len(common_ids)}/{len(related_ids)} related issues found in results.\n{common_ids}")
+                similar_output = ElasticsearchResultRenderer.render_similar_results(similar_results, self.tags_field_name, common_ids)
+                st.markdown("#### Results")
                 st.markdown(similar_output)
             
 

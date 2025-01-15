@@ -103,6 +103,22 @@ class Elasticsearch:
         }
         return self.es.search(index=self.index_name, body=query)
     
+    def get_ids_from_search_results(self, search_results):
+        """
+        Extract IDs from Elasticsearch search results.
+
+        Args:
+            search_results (dict): The results returned by the Elasticsearch search function.
+
+        Returns:
+            list: A list of unique IDs extracted from the search results.
+        """
+        hits = search_results.get('hits', {}).get('hits', [])
+
+        ids = [hit['_id'] for hit in hits if '_id' in hit]
+
+        return list(set(ids))
+    
     def search_by_embedding(self, field: str, query_vector: list, size: int = 5):
         search_query = {
             "size": size,
