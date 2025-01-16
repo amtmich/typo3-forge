@@ -79,7 +79,7 @@ class Elasticsearch:
 
         return self.es.search(index=self.index_name, body=mlt_query)
     
-    def search_by_terms(self, field_name, terms, exclude_ids=None):
+    def search_by_terms(self, field_name, terms, record, exclude_ids=None):
         query = {
             "query": {
                 "bool": {
@@ -92,6 +92,16 @@ class Elasticsearch:
                                 }
                             }
                         } for term in terms
+                    ] + [
+                    {
+                        "match": {
+                            "subject": {
+                                "query": record['subject'],
+                                "fuzziness": "AUTO",
+                                "boost": 0.001
+                            }
+                        }
+                    }
                     ],
                     "minimum_should_match": 1,
                     "must_not": [

@@ -42,29 +42,32 @@ class StreamlitApp:
             self.render_results()
 
     def render_input_with_checkbox(self, items, force = False):
-        st.sidebar.title(f"Tags for issue {st.session_state['record_id']} (AI generated)")
-        st.sidebar.markdown("- You might adjust tags (adjust text and click enter) - just for test purpose (it won't persist new values in db)")
-        st.sidebar.markdown("- If tag is not relevant in your opinion - just uncheck it by clicking 'applied'")
-        
         # Initialize session state if not already done
         if "item_states" not in st.session_state or force == True:
             st.session_state["item_states"] = {
                 index: {"label": item.strip(), "checked": True} for index, item in enumerate(items)
             }
 
-        # Iterate through the list and render an input field with a checkbox for each item
-        for index, item in enumerate(items):
-            cols = st.sidebar.columns([4, 1])  # Allocate space for the input field and checkbox
+        st.sidebar.title(f"Tags for issue {st.session_state['record_id']} (AI generated)")
+        if st.session_state["item_states"]:
+            st.sidebar.markdown("- You might adjust tags (adjust text and click enter) - just for test purpose (it won't persist new values in db)")
+            st.sidebar.markdown("- If tag is not relevant in your opinion - just uncheck it by clicking 'applied'")        
 
-            # Input field for the item text
-            with cols[0]:
-                new_label = st.sidebar.text_input(f"Tag {index + 1}", value=st.session_state["item_states"][index]["label"])
-                st.session_state["item_states"][index]["label"] = new_label
+            # Iterate through the list and render an input field with a checkbox for each item
+            for index, item in enumerate(items):
+                cols = st.sidebar.columns([4, 1])  # Allocate space for the input field and checkbox
 
-            # Checkbox for the item
-            with cols[1]:
-                checked = st.sidebar.checkbox("Applied", key=f"checkbox_{index}", value=st.session_state["item_states"][index]["checked"])
-                st.session_state["item_states"][index]["checked"] = checked
+                # Input field for the item text
+                with cols[0]:
+                    new_label = st.sidebar.text_input(f"Tag {index + 1}", value=st.session_state["item_states"][index]["label"])
+                    st.session_state["item_states"][index]["label"] = new_label
+
+                # Checkbox for the item
+                with cols[1]:
+                    checked = st.sidebar.checkbox("Applied", key=f"checkbox_{index}", value=st.session_state["item_states"][index]["checked"])
+                    st.session_state["item_states"][index]["checked"] = checked
+        else:
+            st.sidebar.markdown("No tags generated for this issue")
 
     def filter_checked_items(self):
         return [item['label'] for item in st.session_state["item_states"].values() if item['checked']]
@@ -132,25 +135,26 @@ class StreamlitApp:
 
             
             ##Search by given fields
-            if st.session_state["item_states"]:
-                tags = self.filter_checked_items()
-            
-                similar_results = self.es_client.search_by_terms(
-                    self.tags_field_name,
-                    tags,
-                    [st.session_state["record_id"]]
-                )
+            #if st.session_state["item_states"]:
+            tags = self.filter_checked_items()
+        
+            similar_results = self.es_client.search_by_terms(
+                self.tags_field_name,
+                tags,
+                st.session_state['record']['_source'],
+                [st.session_state["record_id"]]
+            )
 
-                st.text(f"Tags of searched issue: {tags}")
-                related_ids = self.get_related_ids(st.session_state['record']['_source'])
-                common_ids = []
-                if related_ids:
-                    st.text(f"Related issues ids {related_ids}")
-                    common_ids = self.get_common_ids(st.session_state['record']['_source'], similar_results)
-                    st.progress(len(common_ids)/len(related_ids), text=f"{len(common_ids)}/{len(related_ids)} related issues found in results.\n{common_ids}")
-                similar_output = ElasticsearchResultRenderer.render_similar_results(similar_results, self.tags_field_name, common_ids)
-                st.markdown("#### Results")
-                st.markdown(similar_output)
+            st.text(f"Tags of searched issue: {tags}")
+            related_ids = self.get_related_ids(st.session_state['record']['_source'])
+            common_ids = []
+            if related_ids:
+                st.text(f"Related issues ids {related_ids}")
+                common_ids = self.get_common_ids(st.session_state['record']['_source'], similar_results)
+                st.progress(len(common_ids)/len(related_ids), text=f"{len(common_ids)}/{len(related_ids)} related issues found in results.\n{common_ids}")
+            similar_output = ElasticsearchResultRenderer.render_similar_results(similar_results, self.tags_field_name, common_ids)
+            st.markdown("#### Results")
+            st.markdown(similar_output)
             
 
 if __name__ == "__main__":
