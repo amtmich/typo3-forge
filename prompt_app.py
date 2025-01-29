@@ -395,9 +395,9 @@ def main():
             if val.strip():
                 # Provide a checkbox
                 default_checked = True
-                check_val = st.sidebar.checkbox(val, value=default_checked, key=f"sf_{val}")
+                check_val = st.sidebar.checkbox(f"{val} (original)", value=default_checked, key=f"sf_{val}")
                 # Also an optional input if user wants to adjust the text
-                input_val = st.sidebar.text_input(f"Adjust {val}", value=val, key=f"sf_adj_{val}")
+                input_val = st.sidebar.text_input("", value=val, key=f"sf_adj_{val}")
                 if check_val and input_val.strip():
                     selected_search_field_values.append(input_val.strip())
 
@@ -406,8 +406,8 @@ def main():
         for val in search_field_2_values_list:
             if val.strip():
                 default_checked = True
-                check_val_2 = st.sidebar.checkbox(val, value=default_checked, key=f"sf2_{val}")
-                input_val_2 = st.sidebar.text_input(f"Adjust {val}", value=val, key=f"sf2_adj_{val}")
+                check_val_2 = st.sidebar.checkbox(f"{val} (original)", value=default_checked, key=f"sf2_{val}")
+                input_val_2 = st.sidebar.text_input("", value=val, key=f"sf2_adj_{val}")
                 if check_val_2 and input_val_2.strip():
                     selected_search_field_2_values.append(input_val_2.strip())
 
